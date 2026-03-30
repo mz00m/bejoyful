@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Be Joyful</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: #0a0a0a;
+    color: #e8e4df;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cormorant Garamond', 'Georgia', serif;
+  }
+
+  .viewport {
+    position: relative;
+    width: 100%;
+    max-width: 720px;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Fade masks at top and bottom */
+  .viewport::before,
+  .viewport::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 35vh;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .viewport::before {
+    top: 0;
+    background: linear-gradient(to bottom, #0a0a0a 0%, #0a0a0a 20%, transparent 100%);
+  }
+
+  .viewport::after {
+    bottom: 0;
+    background: linear-gradient(to top, #0a0a0a 0%, #0a0a0a 20%, transparent 100%);
+  }
+
+  .scroll-track {
+    position: absolute;
+    width: 100%;
+    padding: 0 2rem;
+    text-align: center;
+    will-change: transform;
+  }
+
+  .line {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    line-height: 1.9;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    color: #e8e4df;
+    opacity: 0.92;
+  }
+
+  .line.stanza-break {
+    height: 1.2em;
+  }
+
+  /* Watercolor highlight */
+  .highlight {
+    position: relative;
+    display: inline;
+  }
+
+  .highlight::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    right: -6px;
+    top: 0.1em;
+    bottom: 0.05em;
+    background:
+      radial-gradient(ellipse 120% 80% at 20% 50%, rgba(232, 167, 88, 0.35) 0%, transparent 70%),
+      radial-gradient(ellipse 100% 90% at 80% 50%, rgba(219, 132, 72, 0.30) 0%, transparent 65%),
+      radial-gradient(ellipse 140% 70% at 50% 55%, rgba(226, 149, 80, 0.28) 0%, transparent 75%);
+    filter: blur(2px);
+    z-index: -1;
+    border-radius: 4px 8px 5px 7px;
+  }
+
+  .highlight::after {
+    content: '';
+    position: absolute;
+    left: -4px;
+    right: -4px;
+    top: 0.15em;
+    bottom: 0.1em;
+    background:
+      linear-gradient(95deg, transparent 2%, rgba(232, 167, 88, 0.22) 15%, rgba(219, 140, 65, 0.32) 40%, rgba(226, 155, 80, 0.28) 65%, rgba(232, 167, 88, 0.18) 85%, transparent 98%);
+    filter: blur(1px);
+    z-index: -1;
+    border-radius: 3px 6px 4px 5px;
+    transform: rotate(-0.3deg);
+  }
+
+  /* Title - fades in at start */
+  .title-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    background: #0a0a0a;
+    opacity: 1;
+    transition: opacity 2s ease;
+    pointer-events: none;
+  }
+
+  .title-overlay.fade-out {
+    opacity: 0;
+  }
+
+  .title-overlay h1 {
+    font-family: 'Cormorant Garamond', 'Georgia', serif;
+    font-size: clamp(1.4rem, 3.5vw, 2rem);
+    font-weight: 400;
+    font-style: italic;
+    color: #e8e4df;
+    opacity: 0.7;
+    letter-spacing: 0.05em;
+    text-align: center;
+    padding: 0 2rem;
+  }
+
+  .title-overlay .author {
+    font-family: 'Cormorant Garamond', 'Georgia', serif;
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    font-weight: 400;
+    color: #e8e4df;
+    opacity: 0.4;
+    margin-top: 1rem;
+    letter-spacing: 0.08em;
+  }
+</style>
+</head>
+<body>
+
+<div class="title-overlay" id="titleOverlay">
+  <h1>Manifesto: The Mad Farmer Liberation Front</h1>
+  <div class="author">Wendell Berry</div>
+</div>
+
+<div class="viewport">
+  <div class="scroll-track" id="scrollTrack"></div>
+</div>
+
+<script>
+const poemLines = [
+  "Love the quick profit, the annual raise,",
+  "vacation with pay. Want more",
+  "of everything ready-made. Be afraid",
+  "to know your neighbors and to die.",
+  "And you will have a window in your head.",
+  "Not even your future will be a mystery",
+  "any more. Your mind will be punched in a card",
+  "and shut away in a little drawer.",
+  "When they want you to buy something",
+  "they will call you. When they want you",
+  "to die for profit they will let you know.",
+  "",
+  "So, friends, every day do something",
+  "that won\u2019t compute. Love the Lord.",
+  "Love the world. Work for nothing.",
+  "Take all that you have and be poor.",
+  "Love someone who does not deserve it.",
+  "Denounce the government and embrace",
+  "the flag. Hope to live in that free",
+  "republic for which it stands.",
+  "Give your approval to all you cannot",
+  "understand. Praise ignorance, for what man",
+  "has not encountered he has not destroyed.",
+  "",
+  "Ask the questions that have no answers.",
+  "Invest in the millennium. Plant sequoias.",
+  "Say that your main crop is the forest",
+  "that you did not plant,",
+  "that you will not live to harvest.",
+  "Say that the leaves are harvested",
+  "when they have rotted into the mold.",
+  "Call that profit. Prophesy such returns.",
+  "",
+  "Put your faith in the two inches of humus",
+  "that will build under the trees",
+  "every thousand years.",
+  "Listen to carrion \u2013 put your ear",
+  "close, and hear the faint chattering",
+  "of the songs that are to come.",
+  "Expect the end of the world. Laugh.",
+  "Laughter is immeasurable. Be joyful",
+  "though you have considered all the facts.",
+  "So long as women do not go cheap",
+  "for power, please women more than men.",
+  "Ask yourself: Will this satisfy",
+  "a woman satisfied to bear a child?",
+  "Will this disturb the sleep",
+  "of a woman near to giving birth?",
+  "",
+  "Go with your love to the fields.",
+  "Lie down in the shade. Rest your head",
+  "in her lap. Swear allegiance",
+  "to what is nighest your thoughts.",
+  "As soon as the generals and the politicos",
+  "can predict the motions of your mind,",
+  "lose it. Leave it as a sign",
+  "to mark the false trail, the way",
+  "you didn\u2019t go. Be like the fox",
+  "who makes more tracks than necessary,",
+  "some in the wrong direction.",
+  "Practice resurrection."
+];
+
+// The highlighted line text (spans two lines in the poem)
+const highlightText = "Be joyful";
+const highlightText2 = "though you have considered all the facts.";
+
+const track = document.getElementById('scrollTrack');
+
+// Build DOM
+poemLines.forEach((line, i) => {
+  const div = document.createElement('div');
+  div.classList.add('line');
+
+  if (line === '') {
+    div.classList.add('stanza-break');
+  } else if (line.startsWith('Laughter is immeasurable. Be joyful')) {
+    // Split: "Laughter is immeasurable. " + highlighted "Be joyful"
+    div.innerHTML = 'Laughter is immeasurable. <span class="highlight">Be joyful</span>';
+  } else if (line === 'though you have considered all the facts.') {
+    div.innerHTML = '<span class="highlight">though you have considered all the facts.</span>';
+  } else {
+    div.textContent = line;
+  }
+
+  track.appendChild(div);
+});
+
+// Calculate scroll parameters
+const titleOverlay = document.getElementById('titleOverlay');
+let scrollY = 0;
+let animationId = null;
+let isPaused = false;
+let started = false;
+
+function getLineHeight() {
+  const firstLine = track.querySelector('.line');
+  if (!firstLine) return 60;
+  return firstLine.getBoundingClientRect().height;
+}
+
+function getTotalHeight() {
+  return track.scrollHeight;
+}
+
+// Position track so poem starts below viewport center
+function initPosition() {
+  const vh = window.innerHeight;
+  scrollY = -(vh * 0.5);
+  track.style.transform = `translateY(${-scrollY}px)`;
+}
+
+// Find where the last stanza begins (last stanza break index)
+function getLastStanzaScrollTarget() {
+  const lines = track.querySelectorAll('.line');
+  let lastBreakIndex = 0;
+  lines.forEach((line, i) => {
+    if (line.classList.contains('stanza-break')) {
+      lastBreakIndex = i;
+    }
+  });
+  // Get position of line after last stanza break
+  const targetLine = lines[lastBreakIndex + 1];
+  if (!targetLine) return getTotalHeight();
+  const trackRect = track.getBoundingClientRect();
+  const lineRect = targetLine.getBoundingClientRect();
+  // Return scrollY that would center this line
+  const vh = window.innerHeight;
+  return (lineRect.top - trackRect.top) - vh * 0.35;
+}
+
+function getEndScrollTarget() {
+  const lines = track.querySelectorAll('.line');
+  const lastLine = lines[lines.length - 1];
+  const trackRect = track.getBoundingClientRect();
+  const lineRect = lastLine.getBoundingClientRect();
+  const vh = window.innerHeight;
+  return (lineRect.bottom - trackRect.top) - vh * 0.45;
+}
+
+// Speed: pixels per frame at 60fps
+// ~3 lines visible means we want slow movement
+const SCROLL_SPEED = 0.55;
+
+let pauseTimer = null;
+let hasReachedEnd = false;
+
+function animate() {
+  if (isPaused) {
+    animationId = requestAnimationFrame(animate);
+    return;
+  }
+
+  const endTarget = getEndScrollTarget();
+
+  if (scrollY >= endTarget && !hasReachedEnd) {
+    hasReachedEnd = true;
+    isPaused = true;
+
+    // Pause 10 seconds then restart
+    pauseTimer = setTimeout(() => {
+      hasReachedEnd = false;
+      isPaused = false;
+
+      // Fade title back in briefly
+      titleOverlay.style.transition = 'opacity 1.5s ease';
+      titleOverlay.style.opacity = '1';
+      titleOverlay.classList.remove('fade-out');
+
+      setTimeout(() => {
+        initPosition();
+        titleOverlay.style.transition = 'opacity 2s ease';
+        titleOverlay.classList.add('fade-out');
+      }, 3000);
+    }, 10000);
+  }
+
+  scrollY += SCROLL_SPEED;
+  track.style.transform = `translateY(${-scrollY}px)`;
+  animationId = requestAnimationFrame(animate);
+}
+
+function start() {
+  if (started) return;
+  started = true;
+
+  initPosition();
+
+  // Fade out title
+  setTimeout(() => {
+    titleOverlay.classList.add('fade-out');
+  }, 2500);
+
+  // Start scrolling after title fades
+  setTimeout(() => {
+    animationId = requestAnimationFrame(animate);
+  }, 4500);
+}
+
+// Start on load
+window.addEventListener('load', () => {
+  start();
+});
+
+// Handle resize
+window.addEventListener('resize', () => {
+  // Just let it keep scrolling from current position
+});
+</script>
+</body>
+</html>
