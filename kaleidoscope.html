@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kaleidoscope Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0c0c0f;
+    --surface: #16161a;
+    --border: #2a2a30;
+    --text: #e8e6e3;
+    --text-dim: #7f7f86;
+    --accent: #b8a9f0;
+    --accent-dim: rgba(184, 169, 240, 0.12);
+  }
+
+  html { background: var(--bg); color: var(--text); }
+
+  body {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem 4rem;
+  }
+
+  h1 {
+    font-size: 1.1rem;
+    font-weight: 400;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 2.5rem;
+  }
+
+  h1 span { color: var(--accent); }
+
+  /* Upload zone */
+  #drop-zone {
+    width: min(500px, 90vw);
+    aspect-ratio: 1;
+    border: 1.5px dashed var(--border);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.25s, background 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #drop-zone:hover, #drop-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  #drop-zone.hidden { display: none; }
+
+  #drop-zone svg {
+    width: 48px;
+    height: 48px;
+    stroke: var(--text-dim);
+    margin-bottom: 1.2rem;
+    transition: stroke 0.25s;
+  }
+
+  #drop-zone:hover svg { stroke: var(--accent); }
+
+  #drop-zone p {
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    letter-spacing: 0.02em;
+  }
+
+  #drop-zone p small {
+    display: block;
+    margin-top: 0.4rem;
+    font-size: 0.78rem;
+    opacity: 0.6;
+  }
+
+  #file-input { display: none; }
+
+  /* Result area */
+  #result { display: none; flex-direction: column; align-items: center; }
+  #result.visible { display: flex; }
+
+  #canvas-wrap {
+    width: min(500px, 90vw);
+    aspect-ratio: 1;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    background: var(--surface);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+
+  #kaleidoscope {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Center crosshair overlay */
+  #crosshair {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border: 1.5px solid rgba(255,255,255,0.5);
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.2s;
+    box-shadow: 0 0 12px rgba(0,0,0,0.4);
+  }
+
+  #crosshair::before, #crosshair::after {
+    content: '';
+    position: absolute;
+    background: rgba(255,255,255,0.4);
+  }
+
+  #crosshair::before {
+    width: 1px; height: 10px;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  #crosshair::after {
+    width: 10px; height: 1px;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    padding: 0.65rem 1.3rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  button:hover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: #fff;
+  }
+
+  button.primary {
+    background: var(--accent);
+    color: #111;
+    border-color: var(--accent);
+  }
+
+  button.primary:hover {
+    background: #c9bcf5;
+  }
+
+  button svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Slider controls */
+  .sliders {
+    margin-top: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    width: min(500px, 90vw);
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+
+  .slider-row label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    width: 70px;
+    flex-shrink: 0;
+  }
+
+  input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+  }
+
+  /* Hint text */
+  .hint {
+    margin-top: 1rem;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    opacity: 0.6;
+    text-align: center;
+  }
+
+  /* Fade-in animation */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  #result.visible {
+    animation: fadeUp 0.5s ease-out;
+  }
+</style>
+</head>
+<body>
+
+<h1><span>&#9670;</span> Kaleidoscope Maker</h1>
+
+<!-- Upload -->
+<div id="drop-zone">
+  <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="17 8 12 3 7 8"/>
+    <line x1="12" y1="3" x2="12" y2="15"/>
+  </svg>
+  <p>Drop an image here or tap to upload<small>JPG, PNG, WebP</small></p>
+</div>
+<input type="file" id="file-input" accept="image/*">
+
+<!-- Result -->
+<div id="result">
+  <div id="canvas-wrap">
+    <canvas id="kaleidoscope" width="1080" height="1080"></canvas>
+    <div id="crosshair"></div>
+  </div>
+
+  <div class="sliders">
+    <div class="slider-row">
+      <label>Center X</label>
+      <input type="range" id="cx" min="0" max="100" value="50">
+    </div>
+    <div class="slider-row">
+      <label>Center Y</label>
+      <input type="range" id="cy" min="0" max="100" value="50">
+    </div>
+    <div class="slider-row">
+      <label>Segments</label>
+      <input type="range" id="segments" min="4" max="24" value="12" step="2">
+    </div>
+    <div class="slider-row">
+      <label>Zoom</label>
+      <input type="range" id="zoom" min="20" max="200" value="100">
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="btn-shuffle">
+      <svg viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+      Shuffle
+    </button>
+    <button id="btn-new">
+      <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      New Image
+    </button>
+    <button id="btn-download" class="primary">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download
+    </button>
+  </div>
+
+  <p class="hint">Drag on the image to move the center point</p>
+</div>
+
+<script>
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const result = document.getElementById('result');
+const canvas = document.getElementById('kaleidoscope');
+const ctx = canvas.getContext('2d');
+const crosshair = document.getElementById('crosshair');
+const canvasWrap = document.getElementById('canvas-wrap');
+
+const cxSlider = document.getElementById('cx');
+const cySlider = document.getElementById('cy');
+const segSlider = document.getElementById('segments');
+const zoomSlider = document.getElementById('zoom');
+
+let sourceImg = null;
+let centerX = 0.5;
+let centerY = 0.5;
+
+// --- File handling ---
+
+dropZone.addEventListener('click', () => fileInput.click());
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('drag-over');
+});
+
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) loadFile(fileInput.files[0]);
+});
+
+function loadFile(file) {
+  if (!file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      sourceImg = img;
+      centerX = 0.5;
+      centerY = 0.5;
+      cxSlider.value = 50;
+      cySlider.value = 50;
+      render();
+      dropZone.classList.add('hidden');
+      result.classList.add('visible');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// --- Kaleidoscope rendering ---
+
+function render() {
+  if (!sourceImg) return;
+
+  const size = 1080;
+  const numSegments = parseInt(segSlider.value);
+  const zoom = parseInt(zoomSlider.value) / 100;
+
+  ctx.clearRect(0, 0, size, size);
+
+  const halfAngle = Math.PI / numSegments;
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = size * 0.75;
+
+  // Source sample region
+  const srcCx = sourceImg.width * centerX;
+  const srcCy = sourceImg.height * centerY;
+
+  // Create a temporary canvas with the source wedge
+  const tmp = document.createElement('canvas');
+  const tmpCtx = tmp.getContext('2d');
+  tmp.width = size;
+  tmp.height = size;
+
+  // Draw source image centered on the chosen point, scaled
+  const scale = (size / Math.min(sourceImg.width, sourceImg.height)) * zoom;
+  const drawW = sourceImg.width * scale;
+  const drawH = sourceImg.height * scale;
+  const drawX = cx - srcCx * scale;
+  const drawY = cy - srcCy * scale;
+
+  tmpCtx.drawImage(sourceImg, drawX, drawY, drawW, drawH);
+
+  // Draw each segment
+  for (let i = 0; i < numSegments; i++) {
+    const angle = (2 * Math.PI / numSegments) * i;
+    const mirrored = i % 2 === 1;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+
+    if (mirrored) {
+      ctx.scale(1, -1);
+    }
+
+    // Clip to wedge
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(radius * Math.cos(-halfAngle), radius * Math.sin(-halfAngle));
+    ctx.arc(0, 0, radius, -halfAngle, halfAngle);
+    ctx.closePath();
+    ctx.clip();
+
+    // Draw the source
+    ctx.drawImage(tmp, -cx, -cy);
+
+    ctx.restore();
+  }
+
+  // Subtle circular vignette
+  const grad = ctx.createRadialGradient(cx, cy, size * 0.3, cx, cy, size * 0.52);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.25)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+
+  updateCrosshair();
+}
+
+function updateCrosshair() {
+  const rect = canvasWrap.getBoundingClientRect();
+  crosshair.style.left = (centerX * 100) + '%';
+  crosshair.style.top = (centerY * 100) + '%';
+}
+
+// --- Slider events ---
+
+cxSlider.addEventListener('input', () => {
+  centerX = cxSlider.value / 100;
+  render();
+});
+
+cySlider.addEventListener('input', () => {
+  centerY = cySlider.value / 100;
+  render();
+});
+
+segSlider.addEventListener('input', () => render());
+zoomSlider.addEventListener('input', () => render());
+
+// --- Drag on canvas to move center ---
+
+let dragging = false;
+
+canvasWrap.addEventListener('pointerdown', e => {
+  dragging = true;
+  updateCenter(e);
+  canvasWrap.setPointerCapture(e.pointerId);
+});
+
+canvasWrap.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  updateCenter(e);
+});
+
+canvasWrap.addEventListener('pointerup', () => { dragging = false; });
+
+function updateCenter(e) {
+  const rect = canvasWrap.getBoundingClientRect();
+  centerX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  centerY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+  cxSlider.value = centerX * 100;
+  cySlider.value = centerY * 100;
+  render();
+}
+
+// --- Buttons ---
+
+document.getElementById('btn-shuffle').addEventListener('click', () => {
+  centerX = 0.15 + Math.random() * 0.7;
+  centerY = 0.15 + Math.random() * 0.7;
+  cxSlider.value = centerX * 100;
+  cySlider.value = centerY * 100;
+  segSlider.value = [6, 8, 10, 12, 16, 20][Math.floor(Math.random() * 6)];
+  zoomSlider.value = 60 + Math.random() * 100;
+  render();
+});
+
+document.getElementById('btn-new').addEventListener('click', () => {
+  sourceImg = null;
+  result.classList.remove('visible');
+  dropZone.classList.remove('hidden');
+  fileInput.value = '';
+});
+
+document.getElementById('btn-download').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = 'kaleidoscope-1080x1080.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+</script>
+</body>
+</html>
