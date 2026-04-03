@@ -177,7 +177,7 @@ class AudioEngine: ObservableObject {
         if frameCount > third * 2 {
             sum = 0
             let remaining = frameCount - third * 2
-            vDSP_sve(Array(magnitudesArray[(third*2)...]), 1, &sum, vDSP_Length(remaining))
+            vDSP_sve(Array(magnitudesArray[(third*2)..<frameCount]), 1, &sum, vDSP_Length(remaining))
             highEnergy = sum / Float(remaining)
         }
 
@@ -236,7 +236,7 @@ class AudioEngine: ObservableObject {
             var bassSum: Float = 0, midSum: Float = 0, highSum: Float = 0
             vDSP_sve(chunk, 1, &bassSum, vDSP_Length(third))
             vDSP_sve(Array(chunk[third..<third*2]), 1, &midSum, vDSP_Length(third))
-            vDSP_sve(Array(chunk[third*2...]), 1, &highSum, vDSP_Length(windowSize - third*2))
+            vDSP_sve(Array(chunk[(third*2)..<windowSize]), 1, &highSum, vDSP_Length(windowSize - third*2))
 
             let scale: Float = 8.0
             snapshots.append((
