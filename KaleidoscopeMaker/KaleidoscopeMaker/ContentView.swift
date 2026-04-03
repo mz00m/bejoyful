@@ -156,10 +156,43 @@ struct EditorView: View {
                 .shadow(color: .black.opacity(0.5), radius: 30, y: 10)
                 .padding(.horizontal, 20)
 
-                // Transport bar
-                TransportBar(viewModel: viewModel)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
+                // Transport bar + Share/Export
+                HStack(spacing: 12) {
+                    TransportBar(viewModel: viewModel)
+
+                    Spacer()
+
+                    // Context-aware share/export button
+                    Button(action: {
+                        if viewModel.isAnimating {
+                            showingExportPopover = true
+                        } else {
+                            onShare()
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: viewModel.isAnimating ? "record.circle" : "square.and.arrow.up")
+                                .font(.system(size: 14))
+                            Text(viewModel.isAnimating ? "Export" : "Share")
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 12)
+                        .background(Color(hex: "b8a9f0"))
+                        .foregroundColor(Color(hex: "111111"))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    .popover(isPresented: $showingExportPopover) {
+                        if #available(iOS 16.4, *) {
+                            ExportPopover(viewModel: viewModel, isPresented: $showingExportPopover)
+                                .presentationCompactAdaptation(.popover)
+                        } else {
+                            ExportPopover(viewModel: viewModel, isPresented: $showingExportPopover)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
 
                 // Speed slider (progressive disclosure)
                 if viewModel.isAnimating {
@@ -200,35 +233,6 @@ struct EditorView: View {
 
                     IconButton(icon: "photo.on.rectangle", label: "Library") {
                         onNewImage()
-                    }
-
-                    // Context-aware download button
-                    Button(action: {
-                        if viewModel.isAnimating {
-                            showingExportPopover = true
-                        } else {
-                            onShare()
-                        }
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: viewModel.isAnimating ? "record.circle" : "square.and.arrow.up")
-                                .font(.system(size: 14))
-                            Text(viewModel.isAnimating ? "Export" : "Share")
-                                .font(.system(size: 13, weight: .medium))
-                        }
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 12)
-                        .background(Color(hex: "b8a9f0"))
-                        .foregroundColor(Color(hex: "111111"))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                    }
-                    .popover(isPresented: $showingExportPopover) {
-                        if #available(iOS 16.4, *) {
-                            ExportPopover(viewModel: viewModel, isPresented: $showingExportPopover)
-                                .presentationCompactAdaptation(.popover)
-                        } else {
-                            ExportPopover(viewModel: viewModel, isPresented: $showingExportPopover)
-                        }
                     }
                 }
                 .padding(.top, 24)
