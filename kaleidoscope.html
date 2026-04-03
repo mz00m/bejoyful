@@ -6,7 +6,7 @@
 <title>Kaleidoscope Maker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet" crossorigin>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -141,6 +141,191 @@
     transform: translate(-50%, -50%);
   }
 
+  /* Export overlay */
+  #export-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(12, 12, 15, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  #export-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  #export-overlay .progress-ring {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 0.8rem;
+  }
+
+  #export-overlay .progress-ring circle {
+    fill: none;
+    stroke-width: 3;
+  }
+
+  #export-overlay .progress-ring .ring-bg {
+    stroke: var(--border);
+  }
+
+  #export-overlay .progress-ring .ring-fg {
+    stroke: var(--accent);
+    stroke-linecap: round;
+    transform: rotate(-90deg);
+    transform-origin: center;
+    transition: stroke-dashoffset 0.1s;
+  }
+
+  .export-percent {
+    font-size: 1.1rem;
+    color: var(--text);
+    margin-bottom: 0.2rem;
+  }
+
+  .export-frames {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-bottom: 0.1rem;
+  }
+
+  .export-eta {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-bottom: 1rem;
+  }
+
+  .export-status {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-bottom: 1rem;
+  }
+
+  /* Export preview video */
+  #export-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: none;
+  }
+
+  #export-overlay.preview-mode .progress-ring,
+  #export-overlay.preview-mode .export-percent,
+  #export-overlay.preview-mode .export-frames,
+  #export-overlay.preview-mode .export-eta,
+  #export-overlay.preview-mode .export-status,
+  #export-overlay.preview-mode #btn-cancel-export {
+    display: none;
+  }
+
+  #export-overlay.preview-mode #export-preview {
+    display: block;
+  }
+
+  #export-overlay.preview-mode .export-actions {
+    display: flex;
+  }
+
+  .export-actions {
+    display: none;
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+    position: absolute;
+    bottom: 2.2rem;
+  }
+
+  .export-hint {
+    display: none;
+    position: absolute;
+    bottom: 0.6rem;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+
+  #export-overlay.preview-mode .export-hint {
+    display: block;
+  }
+
+  /* Transport bar */
+  .transport {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    width: min(500px, 90vw);
+  }
+
+  #btn-play {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.5rem 1rem;
+  }
+
+  /* Mood dropdown */
+  .mood-wrap {
+    position: relative;
+    flex: 1;
+  }
+
+  #mood-select {
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    padding: 0.5rem 2rem 0.5rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  #mood-select:hover, #mood-select:focus {
+    border-color: var(--accent);
+  }
+
+  #mood-select option {
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  .mood-wrap::after {
+    content: '\25BC';
+    position: absolute;
+    right: 0.8rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+
+  /* Speed slider (hidden until playing) */
+  #speed-row {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.3s, opacity 0.3s;
+  }
+
+  #speed-row.visible {
+    max-height: 40px;
+    opacity: 1;
+  }
+
   /* Controls */
   .controls {
     display: flex;
@@ -173,14 +358,30 @@
     color: #fff;
   }
 
+  button:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
   button.primary {
     background: var(--accent);
     color: #111;
     border-color: var(--accent);
+    min-width: 44px;
+    min-height: 44px;
   }
 
   button.primary:hover {
     background: #c9bcf5;
+  }
+
+  @keyframes gentlePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(184, 169, 240, 0); }
+    50% { box-shadow: 0 0 12px 4px rgba(184, 169, 240, 0.3); }
+  }
+
+  button.pulse {
+    animation: gentlePulse 2s ease-in-out 1;
   }
 
   button svg {
@@ -213,7 +414,7 @@
     color: var(--text-dim);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    width: 70px;
+    width: 80px;
     flex-shrink: 0;
   }
 
@@ -244,6 +445,205 @@
     background: var(--accent);
     cursor: pointer;
     border: none;
+  }
+
+  /* Audio section */
+  #audio-section {
+    width: min(500px, 90vw);
+    margin-top: 1rem;
+  }
+
+  #audio-drop-zone {
+    width: 100%;
+    padding: 1rem;
+    border: 1.5px dashed var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.25s, background 0.25s;
+    min-height: 60px;
+  }
+
+  #audio-drop-zone:hover, #audio-drop-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  #audio-drop-zone.hidden { display: none; }
+
+  #audio-drop-zone p {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    letter-spacing: 0.02em;
+  }
+
+  #audio-drop-zone p small {
+    display: block;
+    margin-top: 0.3rem;
+    font-size: 0.72rem;
+    opacity: 0.6;
+  }
+
+  #audio-file-input { display: none; }
+
+  /* Audio connected state */
+  #audio-info {
+    display: none;
+  }
+
+  #audio-info.visible {
+    display: block;
+  }
+
+  .audio-file-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .audio-filename {
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+
+  .audio-status {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+
+  #btn-remove-audio {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    margin-left: auto;
+  }
+
+  /* Waveform */
+  #waveform {
+    width: 100%;
+    height: 24px;
+    margin-top: 0.4rem;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .waveform-bar {
+    flex: 1;
+    background: var(--accent);
+    opacity: 0.7;
+    min-height: 1px;
+    border-radius: 1px;
+    transition: height 0.05s;
+  }
+
+  /* Mic button */
+  #btn-mic {
+    font-size: 0.72rem;
+    padding: 0.4rem 0.8rem;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  #btn-mic.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .mic-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  /* Export popover */
+  #export-popover {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    z-index: 20;
+    display: none;
+    min-width: 220px;
+  }
+
+  #export-popover.visible {
+    display: block;
+  }
+
+  .popover-label {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+
+  .popover-label:not(:first-child) {
+    margin-top: 0.8rem;
+  }
+
+  .pill-group {
+    display: flex;
+    gap: 0.3rem;
+  }
+
+  .pill {
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.35rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .pill:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .pill.active {
+    background: var(--accent);
+    color: #111;
+    border-color: var(--accent);
+  }
+
+  .popover-check {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+
+  .popover-check.visible {
+    display: flex;
+  }
+
+  .popover-check input[type="checkbox"] {
+    accent-color: var(--accent);
+  }
+
+  #btn-start-export {
+    margin-top: 0.8rem;
+    width: 100%;
+    justify-content: center;
   }
 
   /* Hint text */
@@ -327,6 +727,11 @@
     border-color: #6fcf97;
     color: #6fcf97;
   }
+
+  /* Download button wrapper for popover positioning */
+  .download-wrap {
+    position: relative;
+  }
 </style>
 </head>
 <body>
@@ -347,11 +752,54 @@
 <!-- Result -->
 <div id="result">
   <div id="canvas-wrap">
-    <canvas id="kaleidoscope" width="1080" height="1080"></canvas>
+    <canvas id="kaleidoscope" width="1080" height="1080" role="img" aria-label="Kaleidoscope preview"></canvas>
     <div id="crosshair"></div>
+
+    <!-- Export overlay -->
+    <div id="export-overlay">
+      <svg class="progress-ring" viewBox="0 0 64 64">
+        <circle class="ring-bg" cx="32" cy="32" r="28"/>
+        <circle class="ring-fg" cx="32" cy="32" r="28" stroke-dasharray="175.93" stroke-dashoffset="175.93"/>
+      </svg>
+      <div class="export-percent">0%</div>
+      <div class="export-frames">0 / 0 frames</div>
+      <div class="export-eta"></div>
+      <div class="export-status"></div>
+      <button id="btn-cancel-export">Cancel</button>
+      <video id="export-preview" loop muted playsinline></video>
+      <div class="export-actions">
+        <button id="btn-download-video" class="primary">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download MP4
+        </button>
+        <button id="btn-new-export">New Export</button>
+      </div>
+      <p class="export-hint">Add audio in Instagram or TikTok.</p>
+    </div>
   </div>
 
+  <!-- Transport bar -->
+  <div class="transport">
+    <button id="btn-play" aria-label="Play animation">
+      <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Play
+    </button>
+    <div class="mood-wrap">
+      <select id="mood-select" aria-label="Animation mood">
+        <option value="meditative">Meditative</option>
+        <option value="gentle" selected>Gentle</option>
+        <option value="dramatic">Dramatic</option>
+        <option value="psychedelic">Psychedelic</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Speed slider (progressive disclosure) -->
   <div class="sliders">
+    <div class="slider-row" id="speed-row">
+      <label>Speed</label>
+      <input type="range" id="speed" min="10" max="200" value="100" aria-label="Animation speed" aria-valuetext="100%">
+    </div>
     <div class="slider-row">
       <label>Center X</label>
       <input type="range" id="cx" min="0" max="100" value="50">
@@ -370,6 +818,34 @@
     </div>
   </div>
 
+  <!-- Audio section -->
+  <div id="audio-section">
+    <div id="audio-drop-zone">
+      <p>Drop audio or tap to upload<small>MP3, WAV, AAC — max 20MB, 60s</small></p>
+    </div>
+    <input type="file" id="audio-file-input" accept="audio/*">
+
+    <div id="audio-info">
+      <div class="audio-file-row">
+        <span class="audio-filename" id="audio-filename"></span>
+        <span class="audio-status" id="audio-status"></span>
+        <button id="btn-remove-audio">x</button>
+      </div>
+      <div class="slider-row">
+        <label>Sensitivity</label>
+        <input type="range" id="sensitivity" min="0" max="100" value="50" aria-label="Audio sensitivity">
+      </div>
+      <div id="waveform"></div>
+    </div>
+
+    <div class="mic-row">
+      <button id="btn-mic" aria-label="Use microphone">
+        <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        Use Mic
+      </button>
+    </div>
+  </div>
+
   <div class="controls">
     <button id="btn-shuffle">
       <svg viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
@@ -379,10 +855,32 @@
       <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
       New Image
     </button>
-    <button id="btn-download" class="primary">
-      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Download
-    </button>
+    <div class="download-wrap">
+      <button id="btn-download" class="primary" aria-label="Download">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+      <!-- Export popover -->
+      <div id="export-popover">
+        <div class="popover-label">Duration</div>
+        <div class="pill-group" id="duration-pills">
+          <button class="pill" data-val="3">3s</button>
+          <button class="pill active" data-val="6">6s</button>
+          <button class="pill" data-val="15">15s</button>
+        </div>
+        <div class="popover-label">Aspect</div>
+        <div class="pill-group" id="aspect-pills">
+          <button class="pill active" data-val="1:1">1:1</button>
+          <button class="pill" data-val="9:16">9:16</button>
+          <button class="pill" data-val="16:9">16:9</button>
+        </div>
+        <label class="popover-check" id="include-audio-check">
+          <input type="checkbox" id="include-audio" checked>
+          Include audio
+        </label>
+        <button id="btn-start-export" class="primary">Export</button>
+      </div>
+    </div>
   </div>
 
   <p class="hint">Drag on the image to move the center point</p>
@@ -412,317 +910,6 @@
   </div>
 </div>
 
-<script>
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-const result = document.getElementById('result');
-const canvas = document.getElementById('kaleidoscope');
-const ctx = canvas.getContext('2d');
-const crosshair = document.getElementById('crosshair');
-const canvasWrap = document.getElementById('canvas-wrap');
-
-const cxSlider = document.getElementById('cx');
-const cySlider = document.getElementById('cy');
-const segSlider = document.getElementById('segments');
-const zoomSlider = document.getElementById('zoom');
-
-let sourceImg = null;
-let centerX = 0.5;
-let centerY = 0.5;
-
-// --- Performance: reusable canvases & rAF throttle ---
-const PREVIEW_SIZE = 500;
-const EXPORT_SIZE = 1080;
-
-// Preview canvas (what the user sees — small & fast)
-canvas.width = PREVIEW_SIZE;
-canvas.height = PREVIEW_SIZE;
-
-// Reusable temp canvas for the source slice (avoids GC thrash)
-const tmp = document.createElement('canvas');
-const tmpCtx = tmp.getContext('2d');
-tmp.width = PREVIEW_SIZE;
-tmp.height = PREVIEW_SIZE;
-
-// Off-screen export canvas (only used on download/share)
-const exportCanvas = document.createElement('canvas');
-const exportCtx = exportCanvas.getContext('2d');
-exportCanvas.width = EXPORT_SIZE;
-exportCanvas.height = EXPORT_SIZE;
-
-let rafId = null;
-
-function scheduleRender() {
-  if (rafId) return;
-  rafId = requestAnimationFrame(() => {
-    rafId = null;
-    renderAt(ctx, PREVIEW_SIZE);
-  });
-}
-
-// --- File handling ---
-
-dropZone.addEventListener('click', () => fileInput.click());
-
-dropZone.addEventListener('dragover', e => {
-  e.preventDefault();
-  dropZone.classList.add('drag-over');
-});
-
-dropZone.addEventListener('dragleave', () => {
-  dropZone.classList.remove('drag-over');
-});
-
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
-  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
-});
-
-fileInput.addEventListener('change', () => {
-  if (fileInput.files.length) loadFile(fileInput.files[0]);
-});
-
-function loadFile(file) {
-  if (!file.type.startsWith('image/')) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      sourceImg = img;
-      centerX = 0.5;
-      centerY = 0.5;
-      cxSlider.value = 50;
-      cySlider.value = 50;
-      scheduleRender();
-      dropZone.classList.add('hidden');
-      result.classList.add('visible');
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-// --- Kaleidoscope rendering (shared for preview & export) ---
-
-function renderAt(targetCtx, size) {
-  if (!sourceImg) return;
-
-  const numSegments = parseInt(segSlider.value);
-  const zoom = parseInt(zoomSlider.value) / 100;
-
-  targetCtx.clearRect(0, 0, size, size);
-
-  const halfAngle = Math.PI / numSegments;
-  const cx = size / 2;
-  const cy = size / 2;
-  const radius = size * 0.75;
-
-  // Resize temp canvas if needed
-  if (tmp.width !== size) {
-    tmp.width = size;
-    tmp.height = size;
-  } else {
-    tmpCtx.clearRect(0, 0, size, size);
-  }
-
-  // Draw source image centered on the chosen point, scaled
-  const srcCx = sourceImg.width * centerX;
-  const srcCy = sourceImg.height * centerY;
-  const scale = (size / Math.min(sourceImg.width, sourceImg.height)) * zoom;
-  const drawW = sourceImg.width * scale;
-  const drawH = sourceImg.height * scale;
-  const drawX = cx - srcCx * scale;
-  const drawY = cy - srcCy * scale;
-
-  tmpCtx.drawImage(sourceImg, drawX, drawY, drawW, drawH);
-
-  // Draw each segment
-  for (let i = 0; i < numSegments; i++) {
-    const angle = (2 * Math.PI / numSegments) * i;
-    const mirrored = i % 2 === 1;
-
-    targetCtx.save();
-    targetCtx.translate(cx, cy);
-    targetCtx.rotate(angle);
-
-    if (mirrored) {
-      targetCtx.scale(1, -1);
-    }
-
-    // Clip to wedge
-    targetCtx.beginPath();
-    targetCtx.moveTo(0, 0);
-    targetCtx.lineTo(radius * Math.cos(-halfAngle), radius * Math.sin(-halfAngle));
-    targetCtx.arc(0, 0, radius, -halfAngle, halfAngle);
-    targetCtx.closePath();
-    targetCtx.clip();
-
-    targetCtx.drawImage(tmp, -cx, -cy);
-    targetCtx.restore();
-  }
-
-  // Subtle circular vignette
-  const grad = targetCtx.createRadialGradient(cx, cy, size * 0.3, cx, cy, size * 0.52);
-  grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.25)');
-  targetCtx.fillStyle = grad;
-  targetCtx.fillRect(0, 0, size, size);
-
-  updateCrosshair();
-}
-
-// Render full-res for export (download/share)
-function renderExport() {
-  renderAt(exportCtx, EXPORT_SIZE);
-  return exportCanvas;
-}
-
-function updateCrosshair() {
-  const rect = canvasWrap.getBoundingClientRect();
-  crosshair.style.left = (centerX * 100) + '%';
-  crosshair.style.top = (centerY * 100) + '%';
-}
-
-// --- Slider events (all use rAF-throttled render) ---
-
-cxSlider.addEventListener('input', () => {
-  centerX = cxSlider.value / 100;
-  scheduleRender();
-});
-
-cySlider.addEventListener('input', () => {
-  centerY = cySlider.value / 100;
-  scheduleRender();
-});
-
-segSlider.addEventListener('input', () => scheduleRender());
-zoomSlider.addEventListener('input', () => scheduleRender());
-
-// --- Drag on canvas to move center ---
-
-let dragging = false;
-
-canvasWrap.addEventListener('pointerdown', e => {
-  dragging = true;
-  updateCenter(e);
-  canvasWrap.setPointerCapture(e.pointerId);
-});
-
-canvasWrap.addEventListener('pointermove', e => {
-  if (!dragging) return;
-  updateCenter(e);
-});
-
-canvasWrap.addEventListener('pointerup', () => { dragging = false; });
-
-function updateCenter(e) {
-  const rect = canvasWrap.getBoundingClientRect();
-  centerX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-  centerY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-  cxSlider.value = centerX * 100;
-  cySlider.value = centerY * 100;
-  scheduleRender();
-}
-
-// --- Buttons ---
-
-document.getElementById('btn-shuffle').addEventListener('click', () => {
-  centerX = 0.15 + Math.random() * 0.7;
-  centerY = 0.15 + Math.random() * 0.7;
-  cxSlider.value = centerX * 100;
-  cySlider.value = centerY * 100;
-  segSlider.value = [6, 8, 10, 12, 16, 20][Math.floor(Math.random() * 6)];
-  zoomSlider.value = 60 + Math.random() * 100;
-  scheduleRender();
-});
-
-document.getElementById('btn-new').addEventListener('click', () => {
-  sourceImg = null;
-  result.classList.remove('visible');
-  dropZone.classList.remove('hidden');
-  fileInput.value = '';
-});
-
-// Download renders at full 1080 resolution
-document.getElementById('btn-download').addEventListener('click', () => {
-  const exp = renderExport();
-  const link = document.createElement('a');
-  link.download = 'kaleidoscope-1080x1080.png';
-  link.href = exp.toDataURL('image/png');
-  link.click();
-});
-
-// --- Share buttons (all use full-res export) ---
-
-const shareText = 'Check out this kaleidoscope I made!';
-const shareUrl = window.location.href;
-
-document.getElementById('share-instagram').addEventListener('click', () => {
-  const exp = renderExport();
-  const link = document.createElement('a');
-  link.download = 'kaleidoscope-instagram-1080x1080.png';
-  link.href = exp.toDataURL('image/png');
-  link.click();
-  const btn = document.getElementById('share-instagram');
-  btn.textContent = 'Saved!';
-  setTimeout(() => { btn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5"/></svg> Instagram'; }, 2000);
-});
-
-document.getElementById('share-x').addEventListener('click', () => {
-  window.open(
-    'https://x.com/intent/tweet?text=' + encodeURIComponent(shareText + ' ' + shareUrl),
-    '_blank', 'width=550,height=420'
-  );
-});
-
-document.getElementById('share-facebook').addEventListener('click', () => {
-  window.open(
-    'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(shareUrl),
-    '_blank', 'width=550,height=420'
-  );
-});
-
-document.getElementById('share-pinterest').addEventListener('click', () => {
-  const exp = renderExport();
-  const imgData = exp.toDataURL('image/png');
-  window.open(
-    'https://pinterest.com/pin/create/button/?url=' + encodeURIComponent(shareUrl) + '&description=' + encodeURIComponent(shareText) + '&media=' + encodeURIComponent(imgData),
-    '_blank', 'width=550,height=520'
-  );
-});
-
-document.getElementById('share-copy').addEventListener('click', async () => {
-  try {
-    const exp = renderExport();
-    const blob = await new Promise(resolve => exp.toBlob(resolve, 'image/png'));
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-    const btn = document.getElementById('share-copy');
-    btn.classList.add('copied');
-    btn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
-    setTimeout(() => {
-      btn.classList.remove('copied');
-      btn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
-    }, 2000);
-  } catch {
-    alert('Could not copy — try downloading instead.');
-  }
-});
-
-if (navigator.share && navigator.canShare) {
-  const nativeBtn = document.createElement('button');
-  nativeBtn.className = 'share-btn';
-  nativeBtn.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> More';
-  nativeBtn.addEventListener('click', async () => {
-    try {
-      const exp = renderExport();
-      const blob = await new Promise(resolve => exp.toBlob(resolve, 'image/png'));
-      const file = new File([blob], 'kaleidoscope.png', { type: 'image/png' });
-      await navigator.share({ title: 'My Kaleidoscope', text: shareText, files: [file] });
-    } catch {}
-  });
-  document.querySelector('.share-bar').appendChild(nativeBtn);
-}
-</script>
+<script src="kaleidoscope.js"></script>
 </body>
 </html>
