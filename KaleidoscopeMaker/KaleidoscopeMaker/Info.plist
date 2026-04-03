@@ -6,5 +6,7 @@
 	<string>Take photos to turn into kaleidoscope art</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose photos to turn into kaleidoscope art</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Use your microphone to make the kaleidoscope react to sound</string>
 </dict>
 </plist>
