@@ -223,8 +223,12 @@ struct EditorView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                     .popover(isPresented: $showingExportPopover) {
-                        ExportPopover(viewModel: viewModel, isPresented: $showingExportPopover)
-                            .presentationCompactAdaptation(.popover)
+                        if #available(iOS 16.4, *) {
+                            ExportPopover(viewModel: viewModel, isPresented: $showingExportPopover)
+                                .presentationCompactAdaptation(.popover)
+                        } else {
+                            ExportPopover(viewModel: viewModel, isPresented: $showingExportPopover)
+                        }
                     }
                 }
                 .padding(.top, 24)
