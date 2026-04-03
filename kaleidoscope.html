@@ -430,6 +430,36 @@ let sourceImg = null;
 let centerX = 0.5;
 let centerY = 0.5;
 
+// --- Performance: reusable canvases & rAF throttle ---
+const PREVIEW_SIZE = 500;
+const EXPORT_SIZE = 1080;
+
+// Preview canvas (what the user sees — small & fast)
+canvas.width = PREVIEW_SIZE;
+canvas.height = PREVIEW_SIZE;
+
+// Reusable temp canvas for the source slice (avoids GC thrash)
+const tmp = document.createElement('canvas');
+const tmpCtx = tmp.getContext('2d');
+tmp.width = PREVIEW_SIZE;
+tmp.height = PREVIEW_SIZE;
+
+// Off-screen export canvas (only used on download/share)
+const exportCanvas = document.createElement('canvas');
+const exportCtx = exportCanvas.getContext('2d');
+exportCanvas.width = EXPORT_SIZE;
+exportCanvas.height = EXPORT_SIZE;
+
+let rafId = null;
+
+function scheduleRender() {
+  if (rafId) return;
+  rafId = requestAnimationFrame(() => {
+    rafId = null;
+    renderAt(ctx, PREVIEW_SIZE);
+  });
+}
+
 // --- File handling ---
 
 dropZone.addEventListener('click', () => fileInput.click());
@@ -464,7 +494,7 @@ function loadFile(file) {
       centerY = 0.5;
       cxSlider.value = 50;
       cySlider.value = 50;
-      render();
+      scheduleRender();
       dropZone.classList.add('hidden');
       result.classList.add('visible');
     };
@@ -473,33 +503,32 @@ function loadFile(file) {
   reader.readAsDataURL(file);
 }
 
-// --- Kaleidoscope rendering ---
+// --- Kaleidoscope rendering (shared for preview & export) ---
 
-function render() {
+function renderAt(targetCtx, size) {
   if (!sourceImg) return;
 
-  const size = 1080;
   const numSegments = parseInt(segSlider.value);
   const zoom = parseInt(zoomSlider.value) / 100;
 
-  ctx.clearRect(0, 0, size, size);
+  targetCtx.clearRect(0, 0, size, size);
 
   const halfAngle = Math.PI / numSegments;
   const cx = size / 2;
   const cy = size / 2;
   const radius = size * 0.75;
 
-  // Source sample region
-  const srcCx = sourceImg.width * centerX;
-  const srcCy = sourceImg.height * centerY;
-
-  // Create a temporary canvas with the source wedge
-  const tmp = document.createElement('canvas');
-  const tmpCtx = tmp.getContext('2d');
-  tmp.width = size;
-  tmp.height = size;
+  // Resize temp canvas if needed
+  if (tmp.width !== size) {
+    tmp.width = size;
+    tmp.height = size;
+  } else {
+    tmpCtx.clearRect(0, 0, size, size);
+  }
 
   // Draw source image centered on the chosen point, scaled
+  const srcCx = sourceImg.width * centerX;
+  const srcCy = sourceImg.height * centerY;
   const scale = (size / Math.min(sourceImg.width, sourceImg.height)) * zoom;
   const drawW = sourceImg.width * scale;
   const drawH = sourceImg.height * scale;
@@ -513,36 +542,40 @@ function render() {
     const angle = (2 * Math.PI / numSegments) * i;
     const mirrored = i % 2 === 1;
 
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(angle);
+    targetCtx.save();
+    targetCtx.translate(cx, cy);
+    targetCtx.rotate(angle);
 
     if (mirrored) {
-      ctx.scale(1, -1);
+      targetCtx.scale(1, -1);
     }
 
     // Clip to wedge
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(radius * Math.cos(-halfAngle), radius * Math.sin(-halfAngle));
-    ctx.arc(0, 0, radius, -halfAngle, halfAngle);
-    ctx.closePath();
-    ctx.clip();
+    targetCtx.beginPath();
+    targetCtx.moveTo(0, 0);
+    targetCtx.lineTo(radius * Math.cos(-halfAngle), radius * Math.sin(-halfAngle));
+    targetCtx.arc(0, 0, radius, -halfAngle, halfAngle);
+    targetCtx.closePath();
+    targetCtx.clip();
 
-    // Draw the source
-    ctx.drawImage(tmp, -cx, -cy);
-
-    ctx.restore();
+    targetCtx.drawImage(tmp, -cx, -cy);
+    targetCtx.restore();
   }
 
   // Subtle circular vignette
-  const grad = ctx.createRadialGradient(cx, cy, size * 0.3, cx, cy, size * 0.52);
+  const grad = targetCtx.createRadialGradient(cx, cy, size * 0.3, cx, cy, size * 0.52);
   grad.addColorStop(0, 'rgba(0,0,0,0)');
   grad.addColorStop(1, 'rgba(0,0,0,0.25)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
+  targetCtx.fillStyle = grad;
+  targetCtx.fillRect(0, 0, size, size);
 
   updateCrosshair();
+}
+
+// Render full-res for export (download/share)
+function renderExport() {
+  renderAt(exportCtx, EXPORT_SIZE);
+  return exportCanvas;
 }
 
 function updateCrosshair() {
@@ -551,20 +584,20 @@ function updateCrosshair() {
   crosshair.style.top = (centerY * 100) + '%';
 }
 
-// --- Slider events ---
+// --- Slider events (all use rAF-throttled render) ---
 
 cxSlider.addEventListener('input', () => {
   centerX = cxSlider.value / 100;
-  render();
+  scheduleRender();
 });
 
 cySlider.addEventListener('input', () => {
   centerY = cySlider.value / 100;
-  render();
+  scheduleRender();
 });
 
-segSlider.addEventListener('input', () => render());
-zoomSlider.addEventListener('input', () => render());
+segSlider.addEventListener('input', () => scheduleRender());
+zoomSlider.addEventListener('input', () => scheduleRender());
 
 // --- Drag on canvas to move center ---
 
@@ -589,7 +622,7 @@ function updateCenter(e) {
   centerY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
   cxSlider.value = centerX * 100;
   cySlider.value = centerY * 100;
-  render();
+  scheduleRender();
 }
 
 // --- Buttons ---
@@ -601,7 +634,7 @@ document.getElementById('btn-shuffle').addEventListener('click', () => {
   cySlider.value = centerY * 100;
   segSlider.value = [6, 8, 10, 12, 16, 20][Math.floor(Math.random() * 6)];
   zoomSlider.value = 60 + Math.random() * 100;
-  render();
+  scheduleRender();
 });
 
 document.getElementById('btn-new').addEventListener('click', () => {
@@ -611,30 +644,31 @@ document.getElementById('btn-new').addEventListener('click', () => {
   fileInput.value = '';
 });
 
+// Download renders at full 1080 resolution
 document.getElementById('btn-download').addEventListener('click', () => {
+  const exp = renderExport();
   const link = document.createElement('a');
   link.download = 'kaleidoscope-1080x1080.png';
-  link.href = canvas.toDataURL('image/png');
+  link.href = exp.toDataURL('image/png');
   link.click();
 });
 
-// --- Share buttons ---
+// --- Share buttons (all use full-res export) ---
 
 const shareText = 'Check out this kaleidoscope I made!';
 const shareUrl = window.location.href;
 
-// Instagram: download the image (Instagram doesn't have a web share API)
 document.getElementById('share-instagram').addEventListener('click', () => {
+  const exp = renderExport();
   const link = document.createElement('a');
   link.download = 'kaleidoscope-instagram-1080x1080.png';
-  link.href = canvas.toDataURL('image/png');
+  link.href = exp.toDataURL('image/png');
   link.click();
   const btn = document.getElementById('share-instagram');
   btn.textContent = 'Saved!';
   setTimeout(() => { btn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5"/></svg> Instagram'; }, 2000);
 });
 
-// X (Twitter)
 document.getElementById('share-x').addEventListener('click', () => {
   window.open(
     'https://x.com/intent/tweet?text=' + encodeURIComponent(shareText + ' ' + shareUrl),
@@ -642,7 +676,6 @@ document.getElementById('share-x').addEventListener('click', () => {
   );
 });
 
-// Facebook
 document.getElementById('share-facebook').addEventListener('click', () => {
   window.open(
     'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(shareUrl),
@@ -650,19 +683,19 @@ document.getElementById('share-facebook').addEventListener('click', () => {
   );
 });
 
-// Pinterest
 document.getElementById('share-pinterest').addEventListener('click', () => {
-  const imgData = canvas.toDataURL('image/png');
+  const exp = renderExport();
+  const imgData = exp.toDataURL('image/png');
   window.open(
     'https://pinterest.com/pin/create/button/?url=' + encodeURIComponent(shareUrl) + '&description=' + encodeURIComponent(shareText) + '&media=' + encodeURIComponent(imgData),
     '_blank', 'width=550,height=520'
   );
 });
 
-// Copy image to clipboard
 document.getElementById('share-copy').addEventListener('click', async () => {
   try {
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const exp = renderExport();
+    const blob = await new Promise(resolve => exp.toBlob(resolve, 'image/png'));
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
     const btn = document.getElementById('share-copy');
     btn.classList.add('copied');
@@ -676,14 +709,14 @@ document.getElementById('share-copy').addEventListener('click', async () => {
   }
 });
 
-// Native Web Share API (mobile)
 if (navigator.share && navigator.canShare) {
   const nativeBtn = document.createElement('button');
   nativeBtn.className = 'share-btn';
   nativeBtn.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> More';
   nativeBtn.addEventListener('click', async () => {
     try {
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const exp = renderExport();
+      const blob = await new Promise(resolve => exp.toBlob(resolve, 'image/png'));
       const file = new File([blob], 'kaleidoscope.png', { type: 'image/png' });
       await navigator.share({ title: 'My Kaleidoscope', text: shareText, files: [file] });
     } catch {}
